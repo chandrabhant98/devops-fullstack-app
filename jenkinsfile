@@ -2,27 +2,19 @@ pipeline {
     agent any
 
     stages {
-        stage('Checkout Code') {
-            steps {
-                // Clone the repository
-                git url: 'https://github.com/chandrabhant98/devops-fullstack-app.git', branch: 'main'
-            }
-        }
-        
-        stage('Build Frontend') {
+        // The initial SCM checkout is handled automatically by Declarative Pipeline
+
+        stage('Verify Checkout') {
             steps {
                 script {
-                    // Build Docker image for the frontend
-                    docker.build('my-frontend-app', './frontend')
-                }
-            }
-        }
-        
-        stage('Build Backend') {
-            steps {
-                script {
-                    // Build Docker image for the backend
-                    docker.build('my-backend-app', './backend')
+                    echo "Listing root workspace directory:"
+                    sh 'ls -l'
+
+                    echo "Listing frontend directory:"
+                    sh 'ls -l frontend'
+
+                    echo "Listing backend directory:"
+                    sh 'ls -l backend'
                 }
             }
         }
@@ -32,8 +24,26 @@ pipeline {
                 script {
                     // Use credentials for Docker login
                     withCredentials([usernamePassword(credentialsId: 'docker-login', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                        sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                     }
+                }
+            }
+        }
+
+        stage('Build Frontend') {
+            steps {
+                script {
+                    // Build Docker image for the frontend
+                    docker.build('my-frontend-app', 'frontend')
+                }
+            }
+        }
+        
+        stage('Build Backend') {
+            steps {
+                script {
+                    // Build Docker image for the backend
+                    docker.build('my-backend-app', 'backend')
                 }
             }
         }
@@ -59,9 +69,18 @@ pipeline {
 
     post {
         always {
-            // Clean up Docker containers after build
-            sh 'docker ps -a -q | xargs docker rm -f'
-            sh 'docker rmi -f my-frontend-app my-backend-app || true'
+            script {
+                // Clean up Docker containers after build (only if any exist)
+                sh '''
+                CONTAINERS=$(docker ps -a -q)
+                if [ -n "$CONTAINERS" ]; then
+                    docker rm -f $CONTAINERS || true
+                fi
+                '''
+
+                // Clean up Docker images after the build
+                sh 'docker rmi -f my-frontend-app my-backend-app || true'
+            }
         }
     }
 }
