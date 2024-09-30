@@ -2,6 +2,8 @@ pipeline {
     agent any
 
     stages {
+        // The initial SCM checkout is handled automatically by Declarative Pipeline
+
         stage('Verify Checkout') {
             steps {
                 script {
@@ -20,6 +22,7 @@ pipeline {
         stage('Docker Login') {
             steps {
                 script {
+                    // Use credentials for Docker login
                     withCredentials([usernamePassword(credentialsId: 'docker-login', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                     }
@@ -27,27 +30,23 @@ pipeline {
             }
         }
 
-        stage('Verify Frontend Directory') {
-            steps {
-                script {
-                    echo "Listing frontend directory before build:"
-                    sh 'ls -l frontend'
-                }
-            }
-        }
-
         stage('Build Frontend') {
             steps {
                 script {
-                    // Specify Dockerfile explicitly if necessary
-                    docker.build('my-frontend-app', '-f frontend/Dockerfile frontend')
+                    // List the contents of the frontend directory before building
+                    echo "Listing contents of frontend directory:"
+                    sh 'ls -l frontend'
+
+                    // Build Docker image for the frontend
+                    docker.build('my-frontend-app', '-f frontend/Dockerfile .')
                 }
             }
         }
-
+        
         stage('Build Backend') {
             steps {
                 script {
+                    // Build Docker image for the backend
                     docker.build('my-backend-app', 'backend')
                 }
             }
@@ -56,6 +55,7 @@ pipeline {
         stage('Run Frontend') {
             steps {
                 script {
+                    // Run Docker container for the frontend
                     docker.image('my-frontend-app').run('-d -p 80:3000')
                 }
             }
@@ -64,6 +64,7 @@ pipeline {
         stage('Run Backend') {
             steps {
                 script {
+                    // Run Docker container for the backend
                     docker.image('my-backend-app').run('-d -p 5000:5000')
                 }
             }
@@ -73,12 +74,15 @@ pipeline {
     post {
         always {
             script {
+                // Clean up Docker containers after build (only if any exist)
                 sh '''
                 CONTAINERS=$(docker ps -a -q)
                 if [ -n "$CONTAINERS" ]; then
                     docker rm -f $CONTAINERS || true
                 fi
                 '''
+
+                // Clean up Docker images after the build
                 sh 'docker rmi -f my-frontend-app my-backend-app || true'
             }
         }
