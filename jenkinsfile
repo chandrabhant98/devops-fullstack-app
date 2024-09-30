@@ -27,11 +27,20 @@ pipeline {
             }
         }
 
+        stage('Verify Frontend Directory') {
+            steps {
+                script {
+                    echo "Listing frontend directory before build:"
+                    sh 'ls -l frontend'
+                }
+            }
+        }
+
         stage('Build Frontend') {
             steps {
                 script {
-                    // Ensure to specify the Dockerfile if it's not named "Dockerfile"
-                    docker.build('my-frontend-app', 'frontend')
+                    // Specify Dockerfile explicitly if necessary
+                    docker.build('my-frontend-app', '-f frontend/Dockerfile frontend')
                 }
             }
         }
