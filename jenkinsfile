@@ -1,28 +1,73 @@
 pipeline {
     agent any
+
     stages {
         stage('Checkout SCM') {
             steps {
                 checkout scm
             }
         }
+
         stage('Verify Frontend Directory') {
             steps {
-                sh 'ls -l frontend'
+                script {
+                    // List contents of the frontend directory
+                    sh 'ls -l frontend'
+                }
             }
         }
+
         stage('Docker Login') {
             steps {
-                // Add your Docker login commands here
+                withCredentials([usernamePassword(credentialsId: 'docker-credentials', passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                }
             }
         }
+
         stage('Build Frontend') {
             steps {
                 script {
+                    // Build the Docker image for the frontend
                     sh 'docker build -t my-frontend-app -f frontend/Dockerfile .'
                 }
             }
         }
-        // Add other stages as necessary
+
+        stage('Build Backend') {
+            steps {
+                script {
+                    // Build the Docker image for the backend (update path if necessary)
+                    sh 'docker build -t my-backend-app -f backend/Dockerfile .'
+                }
+            }
+        }
+
+        stage('Run Frontend') {
+            steps {
+                script {
+                    // Run the frontend Docker container
+                    sh 'docker run -d -p 3000:3000 my-frontend-app'
+                }
+            }
+        }
+
+        stage('Run Backend') {
+            steps {
+                script {
+                    // Run the backend Docker container (update as necessary)
+                    sh 'docker run -d -p 8080:8080 my-backend-app'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                // Clean up Docker images after build
+                sh 'docker rmi -f my-frontend-app my-backend-app || true'
+            }
+        }
     }
 }
