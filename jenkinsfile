@@ -1,85 +1,28 @@
 pipeline {
     agent any
-
     stages {
-        stage('Verify Checkout') {
+        stage('Checkout SCM') {
             steps {
-                script {
-                    echo "Listing root workspace directory:"
-                    sh 'ls -l'
-                    echo "Listing frontend directory:"
-                    sh 'ls -l frontend'
-                    echo "Listing backend directory:"
-                    sh 'ls -l backend'
-                }
+                checkout scm
             }
         }
-
+        stage('Verify Frontend Directory') {
+            steps {
+                sh 'ls -l frontend'
+            }
+        }
         stage('Docker Login') {
             steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-login', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-                    }
-                }
+                // Add your Docker login commands here
             }
         }
-
         stage('Build Frontend') {
             steps {
                 script {
-                    echo "Listing contents of frontend directory:"
-                    sh 'ls -l frontend'
-                    // Check if Dockerfile exists before building
-                    sh '''
-                    if [ ! -f frontend/Dockerfile ]; then
-                        echo "Dockerfile not found!"
-                        exit 1
-                    fi
-                    '''
-                    // Build Docker image for the frontend
-                    docker.build('my-frontend-app', '-f frontend/Dockerfile frontend')
+                    sh 'docker build -t my-frontend-app -f frontend/Dockerfile .'
                 }
             }
         }
-        
-        stage('Build Backend') {
-            steps {
-                script {
-                    // Build Docker image for the backend
-                    docker.build('my-backend-app', 'backend')
-                }
-            }
-        }
-
-        stage('Run Frontend') {
-            steps {
-                script {
-                    docker.image('my-frontend-app').run('-d -p 80:3000')
-                }
-            }
-        }
-
-        stage('Run Backend') {
-            steps {
-                script {
-                    docker.image('my-backend-app').run('-d -p 5000:5000')
-                }
-            }
-        }
-    }
-
-    post {
-        always {
-            script {
-                sh '''
-                CONTAINERS=$(docker ps -a -q)
-                if [ -n "$CONTAINERS" ]; then
-                    docker rm -f $CONTAINERS || true
-                fi
-                '''
-                sh 'docker rmi -f my-frontend-app my-backend-app || true'
-            }
-        }
+        // Add other stages as necessary
     }
 }
